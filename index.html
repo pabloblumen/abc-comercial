@@ -1009,7 +1009,7 @@ function vComision(v){
 function gComision(){
   var V=DD.vendedores;
   var totEq=V.reduce(function(s,v){return s+(DD6.vend[v]?DD6.vend[v].total:0);},0);
-  var h='<div class="note">💰 Comisión REAL por cobro (momento del recibo · columna 'Comisión mon ppal' del archivo de comisiones), no sobre la factura. La tasa efectiva es comisión ÷ monto cobrado.</div>';
+  var h='<div class="note">💰 Comisión REAL por cobro (momento del recibo · columna Comisión mon ppal del archivo de comisiones), no sobre la factura. La tasa efectiva es comisión ÷ monto cobrado.</div>';
   h+='<div class="kpi-grid">'+kpiBox('Comisión total equipo 2026',money(totEq),'suma de los 6 vendedores','var(--green2)')+'</div>';
   h+='<div class="card"><div class="ctitle">Comisión por vendedor y mes</div><div class="tscroll"><table class="tbl"><thead><tr><th>Vendedor</th>';
   MESES.forEach(function(m){h+='<th class="num">'+ML[m]+(m===EC.mes?'*':'')+'</th>';});
