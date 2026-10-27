@@ -312,8 +312,14 @@ function xInit(){
   X.cliU={}; D.dims.cli.forEach(function(n,i){X.cliU[n.toUpperCase()]=i;});
   X.ecol={0:XS[0],1:XS[1],2:XS[2]};
   X.ccol={}; ['Terminales','Aftermarket','Especiales','Concesionarios'].forEach(function(c,i){var j=D.dims.cat.indexOf(c); if(j>=0) X.ccol[j]=XS[i];});
+  X.FULL=!!(D.P&&D.P.rows);
+  if(X.FULL){ X.VB=D.K.map(function(r){return [r[0],r[1],D.cm[r[3]].v,r[3],r[4]];}); X.CB=D.P.rows.map(function(r){return [r[0],r[1],D.cm[r[2]].v,r[2],r[4]];}); }
+  else { var a={}; D.V.forEach(function(r){var k=r[0]+'|'+r[1]+'|'+r[2]+'|'+r[3]; (a[k]=a[k]||[r[0],r[1],r[2],r[3],0])[4]+=r[5];}); X.VB=Object.keys(a).map(function(k){return a[k];}); X.CB=D.C; }
+  X.TX=X.FULL?'con IVA':'netos de IVA';
   X.ok=true; return true;
 }
+function xVBf(){return X.VB.filter(function(r){return xbase(r[1],r[2],r[3]);});}
+function xCBf(){return X.CB.filter(function(r){return xbase(r[1],r[2],r[3]);});}
 function xReset(){XF={d:0,h:X.NM-1,e:-1,v:XLOCK,c:-1,u:-1,r:-1,m:-1,f:-1,cl:-1};}
 function xEnsure(lockName){
   if(!xInit()){ $('pane').innerHTML='<div class="empty"><div class="ico">⏳</div>Este módulo necesita los datos nuevos (DD12). Corré actualizar.py.</div>'; return false; }
@@ -448,7 +454,7 @@ function xResumen(){
   var V=xV(), C=xC(), pr=xCmp();
   var vm=xMonthly(V,5), cm=xMonthly(C,4);
   var tot=xRange(vm,XF.d,XF.h), totP=pr?xRange(vm,pr.p[0],pr.p[1]):0, totPj=pr?xRangeP(vm,pr.c[0],pr.c[1]):0;
-  var vComi=xz(X.NM); V.forEach(function(r){ if(r[2]!==X.SINV) vComi[r[0]]+=r[5];});
+  var vComi=xMonthly(xVBf(),4); cm=xMonthly(xCBf(),4);
   var cob=xRange(cm,XF.d,XF.h), vcom=xRange(vComi,XF.d,XF.h);
   var byE=[0,0,0]; V.forEach(function(r){ if(xIn(r[0])) byE[r[1]]+=r[5];});
   var act={}; V.forEach(function(r){ if(xIn(r[0])&&r[5]>0) act[r[3]]=1;});
@@ -463,7 +469,7 @@ function xResumen(){
     kpiBox('Venta neta del período',money(tot),pr?pr.lab+' '+xvar(totPj,totP):'—','var(--navy)')+
     (ec!==null?kpiBox('Mes en curso ('+xml(X.ECI).replace('*','')+')',money(ec),'proyección '+money(ec*X.FAC)+' · día '+D.en_curso.dias+'/'+D.en_curso.dias_mes,'var(--accent)'):'')+
     kpiBox('% Presupuesto',(tot?Math.round(byE[1]/tot*100):0)+'%','ABC Factura '+(tot?Math.round(byE[0]/tot*100):0)+'% · Multicap '+(tot?Math.round(byE[2]/tot*100):0)+'%',XS[1])+
-    (xprodF()?kpiBox('Cobranza','n/d','la cobranza no se abre por marca/familia','#9aa3b5'):kpiBox('Índice de cobranza',(xpc(cob,vcom)||0)+'%','cobrado '+money(cob)+' / vendido '+money(vcom)+' (clientes con vendedor)',(xpc(cob,vcom)||0)>=90?'var(--green2)':(xpc(cob,vcom)||0)>=75?'var(--orange)':'var(--red)'))+
+    (xprodF()?kpiBox('Cobranza','n/d','la cobranza no se abre por marca/familia','#9aa3b5'):kpiBox('Índice de cobranza',(xpc(cob,vcom)||0)+'%','cobrado '+money(cob)+' / facturado '+money(vcom)+(X.FULL?' (todas las cuentas, con IVA)':' (clientes con vendedor)'),(xpc(cob,vcom)||0)>=90?'var(--green2)':(xpc(cob,vcom)||0)>=75?'var(--orange)':'var(--red)'))+
     kpiBox('Cartera / vencido',money(cart),'vencido '+money(venc)+' ('+(cart?Math.round(venc/cart*100):0)+'%) · con IVA','var(--red)')+
     kpiBox('Clientes activos',nf(Object.keys(act).length),'<b style="color:var(--red)">'+nR.length+' 🔴</b> y <b style="color:var(--orange)">'+nO.length+' 🟠</b> clientes a cuidar','var(--blue)')+
   '</div>';
@@ -493,7 +499,7 @@ function xReadResumen(tot,totP,totPj,pr,byE,cob,vcom,nR,cart,venc){
   if(pr&&totP>0){var p=Math.round((totPj-totP)/totP*100); t.push('La venta del período es <b>'+money(tot)+'</b>. Comparando '+pr.lab+' ('+xml(pr.c[0])+'–'+xml(pr.c[1])+' vs '+xml(pr.p[0])+'–'+xml(pr.p[1])+'), viene '+(p>=0?'<b class="xup">'+p+'% arriba</b>':'<b class="xdn">'+(-p)+'% abajo</b>')+' (mes en curso proyectado).');}
   else t.push('La venta del período es <b>'+money(tot)+'</b>.');
   if(tot) t.push('El presupuesto representa el <b>'+Math.round(byE[1]/tot*100)+'%</b> y Multicap el <b>'+Math.round(byE[2]/tot*100)+'%</b>.');
-  if(!xprodF()&&vcom>0){var ix=xpc(cob,vcom); t.push('En clientes con vendedor se cobró <b>'+money(cob)+'</b> contra <b>'+money(vcom)+'</b> vendido: índice <b>'+ix+'%</b>'+(ix<85?' — <b class="xdn">la cobranza no acompaña a la venta</b>.':'.'));}
+  if(!xprodF()&&vcom>0){var ix=xpc(cob,vcom); t.push((X.FULL?'Se cobró <b>':'En clientes con vendedor se cobró <b>')+money(cob)+'</b> contra <b>'+money(vcom)+'</b> facturado'+(X.FULL?' (con IVA)':'')+': índice <b>'+ix+'%</b>'+(ix<85?' — <b class="xdn">la cobranza no acompaña a la venta</b>.':'.'));}
   if(cart) t.push('Cartera <b>'+money(cart)+'</b> con <b>'+Math.round(venc/cart*100)+'%</b> vencido.');
   if(nR.length){var vv=0; nR.forEach(function(x){vv+=x.m.venc;}); t.push('<b style="color:var(--red)">'+nR.length+' clientes</b> compran más y no achican la cuenta ('+money(vv)+' vencido) → ver pestaña <b>Clientes a cuidar</b>.');}
   return '<div class="xread">📌 '+t.join(' ')+'</div>';
@@ -504,10 +510,10 @@ function xBars(isMoney){var o=xLine(isMoney); return o;}
 /* tabla vendedores: big picture */
 function xVendStats(V,C,pr){
   var D=X.D, S={};
-  function g(v){return S[v]||(S[v]={v:v,ven:0,prev:0,cc:0,cob:0,act:{},nue:{},cart:0,venc:0,r:0,o:0});}
+  function g(v){return S[v]||(S[v]={v:v,ven:0,vb:0,prev:0,cc:0,cob:0,act:{},nue:{},cart:0,venc:0,r:0,o:0});}
   var c0=pr?pr.c[0]:XF.d, before={}; V.forEach(function(r){ if(r[0]<c0&&r[5]>0) before[r[3]]=1;});
   V.forEach(function(r){var s=g(r[2]); if(xIn(r[0])){s.ven+=r[5]; if(r[5]>0){s.act[r[3]]=1;}} if(r[5]>0&&r[0]>=c0&&r[0]<=XF.h&&c0>0&&!before[r[3]]) s.nue[r[3]]=1; if(xInP(pr,r[0])) s.prev+=r[5]; if(xInC(pr,r[0])) s.cc+=xproj(r[0],r[5]);});
-  C.forEach(function(r){ if(xIn(r[0])) g(r[2]).cob+=r[4];});
+  xCBf().forEach(function(r){ if(xIn(r[0])) g(r[2]).cob+=r[4];}); xVBf().forEach(function(r){ if(xIn(r[0])) g(r[2]).vb+=r[4];});
   xRiskList().forEach(function(x){var s=g(x.m.v); s.cart+=x.m.sal; s.venc+=x.m.venc; if(x.L.k==='r')s.r++; if(x.L.k==='o')s.o++;});
   return S;
 }
@@ -517,12 +523,12 @@ function xVendTable(V,C,pr,withSinv){
   var T={ven:0,prev:0,cob:0,act:0,cart:0,venc:0,r:0,o:0,vc:0,cobb:0,pj:0};
   var h='<div class="card"><div class="ctitle">Resumen por vendedor y cuentas de gerencia</div><div class="cdesc">Una sola tabla para ver a todos: venta, cobranza, índice, cartera y alertas. Tocá un vendedor para filtrar todo el tablero por él.</div><div class="xwrap"><table class="xt"><thead><tr><th>Vendedor</th><th class="num">Venta período</th><th class="num">% total</th><th class="num">'+(pr?(pr.lab.indexOf('3')>=0?'Últ.3m vs prev':'vs anterior'):'Var.')+'</th><th class="num">Cobrado</th><th class="num">Índice cobr.</th><th class="num">Cartera</th><th class="num">Vencido</th><th class="num">% venc</th><th class="num">Clientes activos</th><th class="num">🔴 / 🟠</th></tr></thead><tbody>';
   var gt=0; keys.forEach(function(k){gt+=S[k].ven;});
-  keys.forEach(function(k){var s=S[k], sin=(k===X.SINV), ix=sin?null:xpc(s.cob,s.ven), na=Object.keys(s.act).length;
-    T.ven+=s.ven;T.prev+=s.prev;T.cob+=s.cob;T.act+=na;T.cart+=s.cart;T.venc+=s.venc;T.r+=s.r;T.o+=s.o;T.pj+=s.cc; if(!sin){T.vc+=s.ven;}
+  keys.forEach(function(k){var s=S[k], sin=(k===X.SINV&&!X.FULL), ix=sin?null:xpc(s.cob,s.vb), na=Object.keys(s.act).length;
+    T.ven+=s.ven;T.prev+=s.prev;T.cob+=s.cob;T.act+=na;T.cart+=s.cart;T.venc+=s.venc;T.r+=s.r;T.o+=s.o;T.pj+=s.cc; if(!sin){T.vc+=s.vb;}
     h+='<tr'+(XF.v===k?' class="me"':'')+'><td class="lnk" onclick="xSet(\'v\','+k+')"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:'+X.vcol[k]+';margin-right:6px"></span>'+xesc(D.dims.ven[k])+'</td><td class="num"><b>'+money(s.ven)+'</b></td><td class="num">'+(gt?Math.round(s.ven/gt*100):0)+'%</td><td class="num">'+(pr?xvar(s.cc,s.prev):'—')+'</td><td class="num">'+(sin?'<span class="xsmall">s/d</span>':money(s.cob))+'</td><td class="num">'+(ix===null?'—':cumpBadge(ix))+'</td><td class="num">'+money(s.cart)+'</td><td class="num">'+money(s.venc)+'</td><td class="num">'+(s.cart?Math.round(s.venc/s.cart*100):0)+'%</td><td class="num">'+na+'</td><td class="num">'+s.r+' / '+s.o+'</td></tr>';});
   var ixT=xpc(T.cob,T.vc);
   h+='<tr class="tot"><td>TOTAL</td><td class="num">'+money(T.ven)+'</td><td class="num">100%</td><td class="num">'+(pr?xvar(T.pj,T.prev):'—')+'</td><td class="num">'+money(T.cob)+'</td><td class="num">'+(ixT===null?'—':cumpBadge(ixT))+'</td><td class="num">'+money(T.cart)+'</td><td class="num">'+money(T.venc)+'</td><td class="num">'+(T.cart?Math.round(T.venc/T.cart*100):0)+'%</td><td class="num">'+T.act+'</td><td class="num">'+T.r+' / '+T.o+'</td></tr>';
-  h+='</tbody></table></div><div class="xsmall" style="margin-top:8px">Índice de cobranza = cobrado (por fecha de recibo) ÷ vendido en el período, ambos netos de IVA. Las cuentas de gerencia (VW, Ford, Italbus, CarOne…) no vienen en el export de cobranzas: se siguen por saldo y por % cobrado de cada mes (pestaña Venta vs Cobranza).</div></div>';
+  h+='</tbody></table></div><div class="xsmall" style="margin-top:8px">'+(X.FULL?'Índice de cobranza = cobrado ÷ facturado en el período, ambos con IVA, por cartera de cada cliente (incluye cuentas de gerencia y pagos de facturas anteriores a Finnegans).':'Índice de cobranza = cobrado (por fecha de recibo) ÷ vendido en el período, ambos netos de IVA. Las cuentas de gerencia no vienen en el export de cobranzas.')+'</div></div>';
   return h;
 }
 function xTopShare(V,dim,title){
@@ -547,33 +553,32 @@ function xMovers(V,pr,up){
 function xCobranza(lock){
   if(!xEnsure(lock)) return; var D=X.D;
   var V=xV(), C=xC(), K=xK();
-  var Vc=V.filter(function(r){return r[2]!==X.SINV;});
-  var vm=xMonthly(Vc,5), cm=xMonthly(C,4);
+  var vm=xMonthly(xVBf(),4), cm=xMonthly(xCBf(),4);
   var ven=xRange(vm,XF.d,XF.h), cob=xRange(cm,XF.d,XF.h), ix=xpc(cob,ven);
   var RL=xRiskList(), cart=0, venc=0; RL.forEach(function(x){cart+=x.m.sal;venc+=x.m.venc;});
   var who=lock?firstName(lock):(XF.v>=0?D.dims.ven[XF.v]:'el equipo');
-  var h='<div class="note">💵 <b>¿Fue un buen mes?</b> Se mira la venta <b>y</b> la cobranza. Índice de cobranza = lo cobrado en el mes (fecha de recibo) ÷ lo vendido en el mes, ambos netos de IVA. 100% = cobrás al mismo ritmo que vendés; debajo de 85% la cuenta corriente está creciendo. Ene–Feb pueden verse bajos porque las cobranzas de facturas anteriores a Finnegans no figuran.</div>';
+  var h='<div class="note">💵 <b>¿Fue un buen mes?</b> Se mira la venta <b>y</b> la cobranza. Índice de cobranza = lo cobrado en el mes (todos los recibos, fecha de recibo) ÷ lo facturado en el mes, '+X.TX+', por cartera de cada cliente. 100% = cobrás al mismo ritmo que facturás; debajo de 85% la cuenta corriente está creciendo.'+(X.FULL?' Incluye los pagos de facturas anteriores a Finnegans (por eso enero puede superar 100%).':' Ene–Feb pueden verse bajos porque las cobranzas de facturas anteriores a Finnegans no figuran.')+'</div>';
   h+=xFbar({noProd:true});
-  if(XF.v===X.SINV&&!lock) h+='<div class="note">Las cuentas de gerencia no vienen en el export de cobranzas por vendedor. Para ellas mirá el <b>% cobrado de cada mes</b> (abajo) y la evolución del saldo.</div>';
+  if(XF.v===X.SINV&&!lock&&!X.FULL) h+='<div class="note">Las cuentas de gerencia no vienen en el export de cobranzas por vendedor. Para ellas mirá el <b>% cobrado de cada mes</b> (abajo) y la evolución del saldo.</div>';
   var ecv=X.ECI>=0?vm[X.ECI]:0, ecc=X.ECI>=0?cm[X.ECI]:0;
-  var t=[]; t.push('En el período, '+who+' vendió <b>'+money(ven)+'</b> y cobró <b>'+money(cob)+'</b> → índice <b>'+(ix||0)+'%</b>.');
-  if(X.ECI>=0&&xIn(X.ECI)){var ie=xpc(ecc,ecv); t.push('Este mes ('+xml(X.ECI).replace('*','')+', día '+D.en_curso.dias+'): vendido <b>'+money(ecv)+'</b>, cobrado <b>'+money(ecc)+'</b> ('+(ie||0)+'%).'+(ie!==null&&ie<70?' <b class="xdn">Mucha venta y poca cobranza: la cuenta crece.</b>':ie!==null&&ie>=100?' <b class="xup">Se cobra más de lo que se vende: la cuenta se achica.</b>':''));}
+  var t=[]; t.push('En el período, '+who+(X.FULL?' facturó <b>':' vendió <b>')+money(ven)+'</b> y cobró <b>'+money(cob)+'</b> → índice <b>'+(ix||0)+'%</b>.');
+  if(X.ECI>=0&&xIn(X.ECI)){var ie=xpc(ecc,ecv); t.push('Este mes ('+xml(X.ECI).replace('*','')+', día '+D.en_curso.dias+'): '+(X.FULL?'facturado':'vendido')+' <b>'+money(ecv)+'</b>, cobrado <b>'+money(ecc)+'</b> ('+(ie||0)+'%).'+(ie!==null&&ie<70?' <b class="xdn">Mucha facturación y poca cobranza: la cuenta crece.</b>':ie!==null&&ie>=100?' <b class="xup">Se cobra más de lo que se vende: la cuenta se achica.</b>':''));}
   if(cart) t.push('Cartera actual <b>'+money(cart)+'</b>, vencido <b>'+money(venc)+'</b> ('+Math.round(venc/cart*100)+'%).');
   h+='<div class="xread">📌 '+t.join(' ')+'</div>';
-  h+='<div class="kpi-grid">'+kpiBox('Vendido (neto)',money(ven),xml(XF.d)+'–'+xml(XF.h),XS[0])+kpiBox('Cobrado (neto)',money(cob),'por fecha de recibo',XS[2])+
+  h+='<div class="kpi-grid">'+kpiBox(X.FULL?'Facturado (c/IVA)':'Vendido (neto)',money(ven),xml(XF.d)+'–'+xml(XF.h),XS[0])+kpiBox(X.FULL?'Cobrado (c/IVA)':'Cobrado (neto)',money(cob),'todos los recibos, por fecha',XS[2])+
      kpiBox('Índice de cobranza',(ix||0)+'%',ix>=100?'la cuenta se achica':ix>=85?'acompaña a la venta':'la cuenta crece',(ix||0)>=90?'var(--green2)':(ix||0)>=75?'var(--orange)':'var(--red)')+
-     kpiBox('Diferencia',money(cob-ven),cob>=ven?'cobró más de lo que vendió':'vendió más de lo que cobró',cob>=ven?'var(--green2)':'var(--red)')+
+     kpiBox('Diferencia',money(cob-ven),cob>=ven?'cobró más de lo que facturó':'facturó más de lo que cobró',cob>=ven?'var(--green2)':'var(--red)')+
      kpiBox('Cartera / vencido',money(cart),'vencido '+money(venc),'var(--red)')+'</div>';
-  h+='<div class="card"><div class="ctitle">Vendido vs cobrado por mes</div><div class="cdesc">Netos de IVA. * mes en curso (parcial).</div><div class="ch"><canvas id="xcVC"></canvas></div></div>';
-  h+='<div class="card"><div class="ctitle">Índice de cobranza mensual</div><div class="cdesc">Cobrado ÷ vendido. La línea punteada es 100%.'+(lock?' Comparado contra el promedio del equipo.':'')+'</div><div class="ch" style="height:220px"><canvas id="xcIX"></canvas></div></div>';
+  h+='<div class="card"><div class="ctitle">Facturado vs cobrado por mes</div><div class="cdesc">'+(X.FULL?'Con IVA, todos los recibos.':'Netos de IVA.')+' * mes en curso (parcial).</div><div class="ch"><canvas id="xcVC"></canvas></div></div>';
+  h+='<div class="card"><div class="ctitle">Índice de cobranza mensual</div><div class="cdesc">Cobrado ÷ facturado. La línea punteada es 100%.'+(lock?' Comparado contra el promedio del equipo.':'')+'</div><div class="ch" style="height:220px"><canvas id="xcIX"></canvas></div></div>';
   if(!lock&&XF.v<0) h+=xIdxHeat();
   h+=xCohort(K);
   $('pane').innerHTML=h;
   var lab=xLabels();
-  xChart('xcVC',{type:'bar',data:{labels:lab,datasets:[{label:'Vendido',data:xSlice(vm),backgroundColor:XS[0],borderRadius:4,borderSkipped:'bottom'},{label:'Cobrado',data:xSlice(cm),backgroundColor:XS[2],borderRadius:4,borderSkipped:'bottom'}]},options:xLine(true)});
+  xChart('xcVC',{type:'bar',data:{labels:lab,datasets:[{label:'Facturado',data:xSlice(vm),backgroundColor:XS[0],borderRadius:4,borderSkipped:'bottom'},{label:'Cobrado',data:xSlice(cm),backgroundColor:XS[2],borderRadius:4,borderSkipped:'bottom'}]},options:xLine(true)});
   var ixs=[]; for(var i=XF.d;i<=XF.h;i++) ixs.push(vm[i]>0?Math.round(cm[i]/vm[i]*100):null);
   var ds=[{label:'Índice '+(lock?firstName(lock):(XF.v>=0?firstName(D.dims.ven[XF.v]):'equipo')),data:ixs,borderColor:XS[0],backgroundColor:XS[0],borderWidth:2,pointRadius:4,cubicInterpolationMode:'monotone',spanGaps:true}];
-  if(lock||XF.v>=0){ var tv=xz(X.NM),tc=xz(X.NM); D.V.forEach(function(r){if(r[2]!==X.SINV)tv[r[0]]+=r[5];}); D.C.forEach(function(r){tc[r[0]]+=r[4];});
+  if(lock||XF.v>=0){ var tv=xz(X.NM),tc=xz(X.NM); X.VB.forEach(function(r){tv[r[0]]+=r[4];}); X.CB.forEach(function(r){tc[r[0]]+=r[4];});
     var ti=[]; for(var j=XF.d;j<=XF.h;j++) ti.push(tv[j]>0?Math.round(tc[j]/tv[j]*100):null);
     ds.push({label:'Equipo',data:ti,borderColor:XGRAY,backgroundColor:XGRAY,borderWidth:2,borderDash:[5,4],pointRadius:3,cubicInterpolationMode:'monotone'}); }
   ds.push({label:'100%',data:lab.map(function(){return 100;}),borderColor:'#C9CFDB',borderWidth:1,borderDash:[2,3],pointRadius:0});
@@ -581,13 +586,13 @@ function xCobranza(lock){
 }
 function xIdxHeat(){
   var D=X.D, S={}, keys=[];
-  D.V.forEach(function(r){ if(r[2]===X.SINV||!xbase(r[1],r[2],r[3])) return; var s=S[r[2]]||(S[r[2]]={v:xz(X.NM),c:xz(X.NM)}); s.v[r[0]]+=r[5];});
-  D.C.forEach(function(r){ if(!xbase(r[1],r[2],r[3])) return; var s=S[r[2]]||(S[r[2]]={v:xz(X.NM),c:xz(X.NM)}); s.c[r[0]]+=r[4];});
-  keys=Object.keys(S).map(Number).filter(function(k){return k!==X.SINV&&xsum(S[k].v)!==0;});
+  xVBf().forEach(function(r){ var s=S[r[2]]||(S[r[2]]={v:xz(X.NM),c:xz(X.NM)}); s.v[r[0]]+=r[4];});
+  xCBf().forEach(function(r){ var s=S[r[2]]||(S[r[2]]={v:xz(X.NM),c:xz(X.NM)}); s.c[r[0]]+=r[4];});
+  keys=Object.keys(S).map(Number).filter(function(k){return (X.FULL||k!==X.SINV)&&xsum(S[k].v)!==0;});
   function cell(c,v){ if(!v) return '<td class="xheat">—</td>'; var p=Math.round(c/v*100), bg=p>=100?'#D5F5E3':p>=85?'#EAF7EF':p>=70?'#FDEBD0':'#FADBD8'; return '<td class="xheat" style="background:'+bg+'">'+p+'%</td>'; }
   var h='<div class="card"><div class="ctitle">Índice de cobranza por vendedor y mes</div><div class="cdesc">🟩 ≥100% achica la cuenta · 🟧 70–85% · 🟥 &lt;70% vendió mucho más de lo que cobró.</div><div class="tscroll"><table class="xt"><thead><tr><th>Vendedor</th>';
   for(var i=XF.d;i<=XF.h;i++) h+='<th class="num">'+xml(i)+'</th>';
-  h+='<th class="num">Período</th><th class="num">Vendido</th><th class="num">Cobrado</th></tr></thead><tbody>';
+  h+='<th class="num">Período</th><th class="num">Facturado</th><th class="num">Cobrado</th></tr></thead><tbody>';
   keys.sort(function(a,b){return xRange(S[b].v,XF.d,XF.h)-xRange(S[a].v,XF.d,XF.h);}).forEach(function(k){var s=S[k];
     h+='<tr><td class="lnk" onclick="xSet(\'v\','+k+')">'+xesc(D.dims.ven[k])+'</td>'; for(var i=XF.d;i<=XF.h;i++) h+=cell(s.c[i],s.v[i]);
     var tv=xRange(s.v,XF.d,XF.h), tc=xRange(s.c,XF.d,XF.h); h+=cell(tc,tv).replace('xheat"','xheat" style="font-weight:800"')+'<td class="num">'+money(tv)+'</td><td class="num">'+money(tc)+'</td></tr>';});
@@ -683,7 +688,7 @@ function xVendComp(lock){
   var keys=Object.keys(S).map(Number).filter(function(k){return k!==X.SINV;});
   var me=lock?D.dims.ven.indexOf(lock):-1;
   var R=keys.map(function(k){var s=S[k], na=Object.keys(s.act).length, ven=s.cc;
-    return {k:k,ven:s.ven,pj:ven,prev:s.prev,cob:s.cob,ix:xpc(s.cob,s.ven)||0,na:na,nue:Object.keys(s.nue).length,tk:na?s.ven/na:0,cart:s.cart,venc:s.venc,pv:s.cart?Math.round(s.venc/s.cart*100):0,r:s.r,o:s.o};});
+    return {k:k,ven:s.ven,pj:ven,prev:s.prev,cob:s.cob,ix:xpc(s.cob,s.vb)||0,na:na,nue:Object.keys(s.nue).length,tk:na?s.ven/na:0,cart:s.cart,venc:s.venc,pv:s.cart?Math.round(s.venc/s.cart*100):0,r:s.r,o:s.o};});
   function rank(f,desc){var a=R.slice().sort(function(x,y){return desc?f(y)-f(x):f(x)-f(y);}); var m={}; a.forEach(function(x,i){m[x.k]=i+1;}); return m;}
   var rV=rank(function(x){return x.ven;},true), rI=rank(function(x){return x.ix;},true), rC=rank(function(x){return x.pv;},false), rG=rank(function(x){return x.prev?x.pj/x.prev:0;},true);
   R.forEach(function(x){x.score=rV[x.k]+rI[x.k]+rC[x.k]+rG[x.k];});
@@ -694,20 +699,20 @@ function xVendComp(lock){
   R.forEach(function(x,i){h+='<tr'+(x.k===me?' class="me"':'')+'><td><span class="rpos '+(i===0?'gold':i===1?'silver':i===2?'bronze':(x.k===me?'rme':'rnorm'))+'">'+(i+1)+'</span></td><td><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:'+X.vcol[x.k]+';margin-right:6px"></span><b>'+xesc(D.dims.ven[x.k])+'</b></td><td class="num">'+money(x.ven)+' <span class="xsmall">#'+rV[x.k]+'</span></td><td class="num">'+(pr?xvar(x.pj,x.prev):'—')+'</td><td class="num">'+money(x.cob)+'</td><td class="num">'+cumpBadge(x.ix)+' <span class="xsmall">#'+rI[x.k]+'</span></td><td class="num">'+x.na+'</td><td class="num">'+x.nue+'</td><td class="num">'+money(x.tk)+'</td><td class="num">'+money(x.cart)+'</td><td class="num">'+x.pv+'% <span class="xsmall">#'+rC[x.k]+'</span></td><td class="num">'+x.r+' / '+x.o+'</td></tr>';});
   h+='</tbody></table></div><div class="xsmall" style="margin-top:6px">Nuevos = clientes que compraron en la ventana comparada y no habían comprado antes en 2026. Cartera y vencido = foto actual de la cuenta corriente.</div></div>';
   h+='<div class="g2"><div class="card"><div class="ctitle">Venta acumulada del año</div><div class="ch"><canvas id="xcAC"></canvas></div></div><div class="card"><div class="ctitle">Venta mensual por vendedor</div><div class="ch"><canvas id="xcVM"></canvas></div></div></div>';
-  h+='<div class="card"><div class="ctitle">Índice de cobranza por vendedor (móvil 3 meses)</div><div class="cdesc">Cobrado ÷ vendido de los últimos 3 meses a cada mes, para suavizar picos. Tope visual 200%. El detalle mes a mes está en Venta vs Cobranza.</div><div class="ch" style="height:260px"><canvas id="xcVI"></canvas></div></div>';
+  h+='<div class="card"><div class="ctitle">Índice de cobranza por vendedor (móvil 3 meses)</div><div class="cdesc">Cobrado ÷ facturado de los últimos 3 meses a cada mes, para suavizar picos. Tope visual 200%. El detalle mes a mes está en Venta vs Cobranza.</div><div class="ch" style="height:260px"><canvas id="xcVI"></canvas></div></div>';
   if(me>=0) h+=xMyYear(me);
   $('pane').innerHTML=h;
-  var lab=xLabels(), M={}, Cm={};
-  keys.forEach(function(k){M[k]=xz(X.NM);Cm[k]=xz(X.NM);});
+  var lab=xLabels(), M={}, Cm={}, MB={};
+  keys.forEach(function(k){M[k]=xz(X.NM);Cm[k]=xz(X.NM);MB[k]=xz(X.NM);});
   var save2=XF.v; XF.v=-1; var ls=XLOCK; XLOCK=-1;
   D.V.forEach(function(r){ if(M[r[2]]&&xbase(r[1],r[2],r[3])) M[r[2]][r[0]]+=r[5];});
-  D.C.forEach(function(r){ if(Cm[r[2]]&&xbase(r[1],r[2],r[3])) Cm[r[2]][r[0]]+=r[4];});
+  X.CB.forEach(function(r){ if(Cm[r[2]]&&xbase(r[1],r[2],r[3])) Cm[r[2]][r[0]]+=r[4];}); X.VB.forEach(function(r){ if(MB[r[2]]&&xbase(r[1],r[2],r[3])) MB[r[2]][r[0]]+=r[4];});
   XF.v=save2; XLOCK=ls;
   var ord=keys.slice().sort(function(a,b){return xRange(M[b],XF.d,XF.h)-xRange(M[a],XF.d,XF.h);});
   function dsOf(fn,dash){return ord.map(function(k){var c=X.vcol[k]; return {label:firstName(D.dims.ven[k]),data:fn(k),borderColor:c,backgroundColor:c,borderWidth:k===me?3.5:2,pointRadius:k===me?4:2,cubicInterpolationMode:'monotone',borderDash:(me>=0&&k!==me)?[4,3]:[]};});}
   xChart('xcAC',{type:'line',data:{labels:lab,datasets:dsOf(function(k){var s=0; return xSlice(M[k]).map(function(x){s+=x;return s;});})},options:xLine(true)});
   xChart('xcVM',{type:'line',data:{labels:lab,datasets:dsOf(function(k){return xSlice(M[k]);})},options:xLine(true)});
-  var oI=xLine(false,'%'); oI.scales.y.max=200; xChart('xcVI',{type:'line',data:{labels:lab,datasets:dsOf(function(k){var o=[]; for(var i=XF.d;i<=XF.h;i++){var a=Math.max(0,i-2), v3=xRange(M[k],a,i), c3=xRange(Cm[k],a,i); o.push(v3>0?Math.min(200,Math.round(c3/v3*100)):null);} return o;})},options:oI});
+  var oI=xLine(false,'%'); oI.scales.y.max=200; xChart('xcVI',{type:'line',data:{labels:lab,datasets:dsOf(function(k){var o=[]; for(var i=XF.d;i<=XF.h;i++){var a=Math.max(0,i-2), v3=xRange(MB[k],a,i), c3=xRange(Cm[k],a,i); o.push(v3>0?Math.min(200,Math.round(c3/v3*100)):null);} return o;})},options:oI});
   if(me>=0){
     var tv=xz(X.NM), n=keys.length; keys.forEach(function(k){for(var i=0;i<X.NM;i++) tv[i]+=M[k][i]/n;});
     xChart('xcMY',{type:'bar',data:{labels:lab,datasets:[{label:firstName(lock),data:xSlice(M[me]),backgroundColor:X.vcol[me],borderRadius:4,borderSkipped:'bottom'},{label:'Promedio del equipo',data:xSlice(tv),backgroundColor:XGRAY,borderRadius:4,borderSkipped:'bottom'}]},options:xLine(true)});
