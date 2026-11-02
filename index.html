@@ -498,7 +498,7 @@ function xReadResumen(tot,totP,totPj,pr,byE,cob,vcom,nR,cart,venc){
   var t=[], D=X.D;
   if(pr&&totP>0){var p=Math.round((totPj-totP)/totP*100); t.push('La venta del período es <b>'+money(tot)+'</b>. Comparando '+pr.lab+' ('+xml(pr.c[0])+'–'+xml(pr.c[1])+' vs '+xml(pr.p[0])+'–'+xml(pr.p[1])+'), viene '+(p>=0?'<b class="xup">'+p+'% arriba</b>':'<b class="xdn">'+(-p)+'% abajo</b>')+(X.FAC>1.001?' (mes en curso proyectado).':'.'));}
   else t.push('La venta del período es <b>'+money(tot)+'</b>.');
-  if(tot) t.push('El presupuesto representa el <b>'+Math.round(byE[1]/tot*100)+'%</b> y Multicap el <b>'+Math.round(byE[2]/tot*100)+'%</b>.');
+  if(tot){var abc=byE[0]+byE[1]; t.push('Por empresa: <b>ABC '+money(abc)+'</b> ('+Math.round(abc/tot*100)+'% del total)'+(abc>0?', de lo que vende ABC el <b>'+Math.round(byE[0]/abc*100)+'%</b> sale con factura y el <b>'+Math.round(byE[1]/abc*100)+'%</b> con presupuesto':'')+'; <b>Multicap '+money(byE[2])+'</b> ('+Math.round(byE[2]/tot*100)+'% del total).');}
   if(!xprodF()&&vcom>0){var ix=xpc(cob,vcom); t.push((X.FULL?'Se cobró <b>':'En clientes con vendedor se cobró <b>')+money(cob)+'</b> contra <b>'+money(vcom)+'</b> facturado'+(X.FULL?' (con IVA)':'')+': índice <b>'+ix+'%</b>'+(ix<85?' — <b class="xdn">la cobranza no acompaña a la venta</b>.':'.'));}
   if(cart) t.push('Cartera <b>'+money(cart)+'</b> con <b>'+Math.round(venc/cart*100)+'%</b> vencido.');
   if(nR.length){var vv=0; nR.forEach(function(x){vv+=x.m.venc;}); t.push('<b style="color:var(--red)">'+nR.length+' clientes</b> compran más y no achican la cuenta ('+money(vv)+' vencido) → ver pestaña <b>Clientes a cuidar</b>.');}
